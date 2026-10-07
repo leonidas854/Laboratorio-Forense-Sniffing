@@ -1,52 +1,39 @@
-name: CI/CD Forensics Lab
-
+name: Laboratorio HTTP
 on:
   push:
-    branches: [ "main" ]
+    branches: [main, master]
   pull_request:
-    branches: [ "main" ]
-
+    branches: [main, master]
 jobs:
-  build-and-test:
+  integration:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-
-    - name: Install dependencies (WebApp)
-      run: cd webapp && npm ci
-
-    - name: Build Next.js App
-      run: cd webapp && npm run build
-
-    - name: Install Playwright
-      run: |
-        cd playwright-client
-        npm ci
-        npx playwright install --with-deps chromium
-
-    - name: Start Podman Compose Services
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y podman podman-compose
-        podman-compose up -d
-        # Wait for services
-        sleep 10
-
-    - name: Run Playwright Tests (Traffic Simulation)
-      env:
-        BASE_URL: http://127.0.0.1:3000
-      run: |
-        cd playwright-client
-        npx playwright test --config=playwright.config.ts
-
-    - name: Teardown
-      if: always()
-      run: |
-        podman-compose down
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            webapp/package-lock.json
+            playwright-client/package-lock.json
+      - name: Lint
+        run: npm ci --prefix webapp && npm run lint --prefix webapp
+      - name: Herramientas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman podman-compose
+          npm ci --prefix playwright-client
+          cd playwright-client && npx playwright install --with-deps chromium
+      - name: Desplegar HTTP
+        run: |
+          cp .env.example .env
+          make lab-up
+          make validate
+      - name: Navegador y API a través de Nginx
+        run: make simulate-client
+      - name: Logs
+        if: always()
+        run: podman-compose logs --tail=100
+      - name: Detener
+        if: always()
+        run: podman-compose down

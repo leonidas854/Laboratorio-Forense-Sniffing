@@ -1,9 +1,7 @@
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://forensics_user:supersecretpassword123@localhost:5432/forensics_db',
-});
+// pg consume PGHOST, PGPORT, PGUSER, PGPASSWORD y PGDATABASE de Compose.
+const pool = new Pool({ max: 5, connectionTimeoutMillis: 3000, idleTimeoutMillis: 10000 });
+pool.on('error', () => console.error('Conexión PostgreSQL inactiva interrumpida'));
 
-export const query = (text: string, params?: any[]) => {
-  return pool.query(text, params);
-};
+export const query = (text: string, params?: unknown[]) => pool.query(text, params);

@@ -29,3 +29,11 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 *.pcap
+*.pcapng
+evidence/
+playwright-report/
+test-results/
+*.tsbuildinfo
+__pycache__/
+nginx/certs/*
+!nginx/certs/.gitkeep

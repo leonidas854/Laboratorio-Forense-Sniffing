@@ -1,28 +1,33 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Simulación de Tráfico Benigno (Forense)', () => {
-  // Simular un comportamiento de logueo repetitivo
-  for (let i = 1; i <= 5; i++) {
-    test(`Intento de login HTTP ${i}`, async ({ page }) => {
-      // 1. Navegar al login
-      await page.goto('/');
+for (let i = 1; i <= 3; i++) {
+  test(`Login de demostración ${i}`, async ({ page, baseURL }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /Un inicio de sesión/ })).toBeVisible();
+    await expect(page.getByTestId('protocol')).toHaveText(new URL(baseURL!).protocol === 'https:' ? 'HTTPS' : 'HTTP');
+    await page.getByLabel('Usuario', { exact: true }).fill('admin');
+    await page.getByLabel('Contraseña', { exact: true }).fill('admin123');
+    await page.getByRole('button', { name: /Iniciar sesión/ }).click();
+    await expect(page.getByRole('status')).toContainText('Login exitoso');
+  });
+}
 
-      // 2. Verificar que estamos en la página
-      await expect(page.locator('h1')).toContainText('Portal Corporativo');
+test('Credenciales incorrectas y formulario móvil', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await page.getByLabel('Usuario', { exact: true }).fill('admin');
+  await page.getByLabel('Contraseña', { exact: true }).fill('incorrecta');
+  await page.getByRole('button', { name: /Iniciar sesión/ }).click();
+  await expect(page.getByRole('status')).toContainText('Credenciales inválidas');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
 
-      // 3. Llenar credenciales (en texto plano)
-      // Estas credenciales viajarán por HTTP, listas para ser capturadas por el analista forense
-      await page.fill('#username', 'admin');
-      await page.fill('#password', 'admin123');
-
-      // 4. Enviar formulario
-      await page.click('button[type="submit"]');
-
-      // 5. Esperar confirmación
-      await expect(page.locator('.message.success')).toBeVisible({ timeout: 5000 });
-      
-      // 6. Pequeña pausa para simular lectura
-      await page.waitForTimeout(2000);
-    });
-  }
+test('API rechaza formatos inválidos y consultas de inyección', async ({ request }) => {
+  expect((await request.post('/api/login', { data: null, headers: { 'Content-Type': 'application/json' } })).status()).toBe(400);
+  expect((await request.post('/api/login', { data: { username: [], password: {} } })).status()).toBe(400);
+  expect((await request.post('/api/login', { data: '{', headers: { 'Content-Type': 'application/json' } })).status()).toBe(400);
+  expect((await request.post('/api/login', { data: 'no-json', headers: { 'Content-Type': 'text/plain' } })).status()).toBe(415);
+  const response = await request.post('/api/login', { data: { username: "' OR 1=1 --", password: 'incorrecta' } });
+  expect(response.status()).toBe(401);
+  expect(response.headers()['cache-control']).toContain('no-store');
 });

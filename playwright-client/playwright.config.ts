@@ -5,15 +5,12 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   workers: 1,
-  reporter: 'html',
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.BASE_URL || 'http://127.0.0.1:8080', // Puerto expuesto por Vagrant
-    trace: 'on-first-retry',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:8080',
+    // HTTPS requiere una CA confiable; no se omiten errores del certificado.
+    ignoreHTTPSErrors: false,
+    trace: 'retain-on-failure',
   },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });
